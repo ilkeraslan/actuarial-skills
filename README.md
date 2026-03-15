@@ -1,3 +1,7 @@
+<p align="center">
+  <img src=".github/hero-banner.svg" alt="Actuarial Skills for Claude" width="100%">
+</p>
+
 # Actuarial Skills for Claude
 
 **Open-source Claude skills for property & casualty actuaries.**
