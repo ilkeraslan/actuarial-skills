@@ -103,19 +103,19 @@ This is a **quick check**, not a full reserve study. Specifically:
 - Tail factor selection is mechanical (exponential decay). Production reserve analyses require actuarial judgment on tail selection
 - Results should be cross-referenced with knowledge of changes in claims handling, coverage, legal environment, or reinsurance
 - **This does not constitute an actuarial opinion under ASOP No. 43 or a Statement of Actuarial Opinion per ASOP No. 36**
-- ASOPs are referenced throughout for educational context — see the separate ASOP Compliance Advisor skill (roadmap) for compliance-focused guidance
+- ASOPs are referenced throughout for educational context — they do not constitute compliance guidance
 
 Use this as a starting point, a sanity check, or a way to quickly explore your data — not as a substitute for a signed actuarial analysis.
 
 ## Roadmap
 
-We plan to add skills for other common P&C actuarial workflows. Ideas we're considering (feedback welcome via [Issues](../../issues)):
+We plan to add skills for other common P&C actuarial workflows. Feedback welcome via [Issues](../../issues).
 
-- **Loss Development Triangle Analyzer** — deeper diagnostics, residual analysis, and method comparison visualizations
-- **Actuarial Exhibit Formatter** — convert rough calculations into properly formatted, numbered exhibits
-- **Rate Filing Completeness Checker** — cross-reference filing exhibits against state-specific requirements
-- **Credibility Calculator** — classical and Bühlmann credibility with complement selection guidance
-- **ASOP Compliance Advisor** — comprehensive compliance checking (complements the educational ASOP references in the Loss Reserve Analysis skill)
+- **Ratemaking Analysis** (`ratemaking-analysis`) — Full P&C ratemaking workflow: loss trending, on-level premium, development to ultimate, expense loading, credibility weighting, and rate indications. Produces standard ratemaking exhibits. References Werner & Modlin *Basic Ratemaking*, CAS Exam 5 syllabus, ASOPs 12/25/30.
+
+- **Reinsurance Analysis** (`reinsurance-analysis`) — Treaty and facultative reinsurance analysis: ceded loss development, net vs. gross comparisons, layer analysis, sliding scale commission evaluation, and reinsurance pricing. Produces ceded reserve exhibits and treaty summary workbooks.
+
+- **Financial Statement Review** (`financial-statement-review`) — Financial statement preparation and review: Schedule P analysis, SAP/GAAP exhibit cross-checks, IRIS ratio calculations, reserve adequacy diagnostics (residual analysis, hindsight testing), and annual statement reconciliation. Complements the Loss Reserve Analysis skill with deeper diagnostics focused on regulatory reporting.
 
 If you have ideas for skills that would save you time, open an issue or reach out.
 
