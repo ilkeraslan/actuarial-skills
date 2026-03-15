@@ -1,12 +1,144 @@
 """
 Parse loss development triangles from Excel or CSV files.
-Handles standard triangle layout, columnar layout, and common variations.
+Handles standard triangle layout, columnar layout, transaction-level data,
+and common variations.
 """
 import pandas as pd
 import numpy as np
+import re
 import sys
 import json
 import argparse
+
+
+# Column names (case-insensitive) that signal transaction-level data
+_TRANSACTION_COLUMNS = {
+    "accident_date", "loss_date", "date_of_loss", "accident_dt",
+    "evaluation_date", "eval_date", "valuation_date",
+    "claim_id", "claim_number", "claimid",
+    "paid_loss", "paid", "paid_amount", "paid_losses",
+    "incurred_loss", "incurred", "incurred_amount", "incurred_losses",
+    "case_reserve", "case_reserves", "outstanding", "os_reserve",
+}
+
+
+def _detect_transaction_format(df):
+    """Check if the dataframe looks like claim-level transaction data.
+
+    Returns True if the first row (potential header) contains enough
+    recognizable transaction column names.
+    """
+    first_row = [str(v).strip().lower().replace(" ", "_") for v in df.iloc[0]]
+    matches = sum(1 for v in first_row if v in _TRANSACTION_COLUMNS)
+    return matches >= 3
+
+
+def _find_column(headers, candidates):
+    """Find the first matching column index from a list of candidate names."""
+    normalized = [str(h).strip().lower().replace(" ", "_") for h in headers]
+    for candidate in candidates:
+        if candidate in normalized:
+            return normalized.index(candidate)
+    return None
+
+
+def parse_transaction_format(df, value_type="incurred"):
+    """Aggregate claim-level transaction data into a development triangle.
+
+    Args:
+        df: DataFrame where the first row is a header with recognizable
+            column names (accident_date, evaluation_date, paid_loss, etc.)
+        value_type: Which loss value to aggregate — "paid", "incurred", or "both".
+            Defaults to "incurred". Falls back to "paid" if incurred is unavailable.
+
+    Returns:
+        (accident_periods, dev_periods, triangle_df)
+    """
+    headers = df.iloc[0].tolist()
+    data = df.iloc[1:].copy()
+    data.columns = [str(h).strip().lower().replace(" ", "_") for h in headers]
+    data = data.reset_index(drop=True)
+
+    # Locate required columns
+    acc_col = _find_column(headers, [
+        "accident_date", "loss_date", "date_of_loss", "accident_dt",
+    ])
+    eval_col = _find_column(headers, [
+        "evaluation_date", "eval_date", "valuation_date",
+    ])
+    if acc_col is None or eval_col is None:
+        raise ValueError(
+            "Transaction data requires accident_date and evaluation_date columns"
+        )
+
+    acc_col_name = data.columns[acc_col]
+    eval_col_name = data.columns[eval_col]
+
+    # Parse dates
+    data[acc_col_name] = pd.to_datetime(data[acc_col_name], errors="coerce")
+    data[eval_col_name] = pd.to_datetime(data[eval_col_name], errors="coerce")
+    data = data.dropna(subset=[acc_col_name, eval_col_name])
+
+    # Derive accident year and development period (in years, 1-indexed)
+    data["_accident_year"] = data[acc_col_name].dt.year
+    data["_dev_period"] = data[eval_col_name].dt.year - data["_accident_year"] + 1
+    data = data[data["_dev_period"] >= 1]
+
+    # Select the value column
+    paid_col = _find_column(headers, [
+        "paid_loss", "paid", "paid_amount", "paid_losses",
+    ])
+    incurred_col = _find_column(headers, [
+        "incurred_loss", "incurred", "incurred_amount", "incurred_losses",
+    ])
+
+    if value_type == "incurred" and incurred_col is not None:
+        val_col_name = data.columns[incurred_col]
+    elif paid_col is not None:
+        val_col_name = data.columns[paid_col]
+    elif incurred_col is not None:
+        val_col_name = data.columns[incurred_col]
+    else:
+        # Try computing incurred from paid + case reserve
+        case_col = _find_column(headers, [
+            "case_reserve", "case_reserves", "outstanding", "os_reserve",
+        ])
+        if paid_col is not None and case_col is not None:
+            paid_name = data.columns[paid_col]
+            case_name = data.columns[case_col]
+            data[paid_name] = pd.to_numeric(data[paid_name], errors="coerce").fillna(0)
+            data[case_name] = pd.to_numeric(data[case_name], errors="coerce").fillna(0)
+            data["_computed_incurred"] = data[paid_name] + data[case_name]
+            val_col_name = "_computed_incurred"
+        else:
+            raise ValueError(
+                "Transaction data requires a paid_loss, incurred_loss, or "
+                "paid_loss + case_reserve column"
+            )
+
+    data[val_col_name] = pd.to_numeric(data[val_col_name], errors="coerce").fillna(0)
+
+    # Take the latest evaluation per claim per development period
+    claim_col = _find_column(headers, [
+        "claim_id", "claim_number", "claimid",
+    ])
+    if claim_col is not None:
+        claim_col_name = data.columns[claim_col]
+        # Keep the row with the latest evaluation_date per claim per dev period
+        data = data.sort_values(eval_col_name).groupby(
+            [claim_col_name, "_accident_year", "_dev_period"], as_index=False
+        ).last()
+
+    # Aggregate: sum across claims by accident year and dev period
+    triangle = data.groupby(["_accident_year", "_dev_period"])[val_col_name].sum()
+    triangle = triangle.unstack()
+
+    acc_periods = [str(y) for y in sorted(triangle.index)]
+    dev_periods = sorted(triangle.columns.tolist())
+    triangle_data = triangle.sort_index().reset_index(drop=True)
+    triangle_data.columns = dev_periods
+
+    return acc_periods, dev_periods, triangle_data
 
 
 def detect_triangle_format(df):
@@ -140,12 +272,16 @@ def read_triangle(filepath, sheet_name=None):
     else:
         raise ValueError(f"Unsupported file format: {ext}")
 
-    fmt = detect_triangle_format(df)
-
-    if fmt == "triangle":
-        acc_periods, dev_periods, triangle_data = parse_triangle_format(df)
+    # Check for transaction-level data first (needs header row)
+    if _detect_transaction_format(df):
+        fmt = "transaction"
+        acc_periods, dev_periods, triangle_data = parse_transaction_format(df)
     else:
-        acc_periods, dev_periods, triangle_data = parse_columnar_format(df)
+        fmt = detect_triangle_format(df)
+        if fmt == "triangle":
+            acc_periods, dev_periods, triangle_data = parse_triangle_format(df)
+        else:
+            acc_periods, dev_periods, triangle_data = parse_columnar_format(df)
 
     metadata = {
         "format_detected": fmt,

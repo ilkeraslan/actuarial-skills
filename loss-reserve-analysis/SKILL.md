@@ -33,6 +33,7 @@ Per ASOP No. 23 (Data Quality), Section 3.2 (Selection of Data), consider whethe
 **Supported formats:**
 - Standard triangle layout: rows = accident years/quarters, columns = development periods
 - Columnar layout: columns for accident period, development period, and loss amount
+- Transaction-level data: claim-level records with accident_date, evaluation_date, and loss amounts — automatically aggregated into a triangle
 - Schedule P format (will need manual identification of the relevant section)
 
 ### Step 2: Run the Analysis
