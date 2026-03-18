@@ -2,9 +2,23 @@
   <img src=".github/hero-banner.svg" alt="Actuarial Skills for Claude" width="100%">
 </p>
 
-# Actuarial Skills for Claude
+<p align="center">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT License"></a>
+</p>
 
-**Open-source Claude skills for property & casualty actuaries.**
+<h1 align="center">Actuarial Skills for Claude</h1>
+
+<p align="center"><strong>Open-source Claude skills for property & casualty actuaries.</strong></p>
+
+<p align="center">
+  <a href="#available-skills">Skills</a> •
+  <a href="#quick-start">Quick Start</a> •
+  <a href="#example-usage">Example</a> •
+  <a href="#roadmap">Roadmap</a> •
+  <a href="#contributing">Contributing</a>
+</p>
+
+<br>
 
 AI is reshaping how actuaries work — but the profession benefits most when practical tools are shared openly. This project provides ready-to-use Claude skills that encode standard actuarial methods, so any actuary can leverage them immediately. Think of it as a starting point: use these skills as they are, adapt them to your workflows, or contribute new ones. The goal is to build a shared foundation that helps the insurance industry move forward together.
 
@@ -20,7 +34,7 @@ Skills work in [Claude.ai](https://claude.ai) Projects and [Claude Code](https:/
 
 ### Loss Reserve Analysis
 
-Upload a loss development triangle (Excel or CSV) and get a multi-method reserve analysis with formatted exhibits — in seconds.
+Upload a loss development triangle or raw claim-level transaction data (Excel or CSV) and get a multi-method reserve analysis with formatted exhibits — in seconds.
 
 **Methods included:**
 - Chain Ladder — volume-weighted and simple average age-to-age factors
@@ -50,6 +64,8 @@ Methods reference standard actuarial literature including Friedland's *Estimatin
 ### More Skills Coming Soon
 
 We're building additional skills for common actuarial workflows. See the [Roadmap](#roadmap) below.
+
+---
 
 ## Quick Start
 
@@ -88,16 +104,19 @@ Or, if you also have premium data:
 
 Claude parses the triangle, runs all applicable methods, and returns a formatted Excel report with the exhibits described above plus a narrative summary of findings.
 
+---
+
 ## Supported Input Formats
 
 The skill handles common triangle layouts automatically:
 
 - **Standard triangle** — rows are accident periods, columns are development periods (most common)
 - **Columnar / long format** — three columns: accident period, development period, loss amount
+- **Transaction-level data** — raw claim-level records with `claim_id`, `accident_date`, `evaluation_date`, and loss columns — automatically aggregated into a development triangle
 - **Excel or CSV** — `.xlsx`, `.xls`, `.xlsm`, `.csv`
 - **Multiple sheets** — specify which sheet contains the triangle; premium data can be on a separate sheet
 
-Development periods can be in months or years. Accident periods can be annual or quarterly.
+Development periods can be in months or years. Accident periods can be annual or quarterly. If you have raw claims data rather than a pre-built triangle, the skill handles the aggregation for you.
 
 ## Important Caveats
 
@@ -111,17 +130,21 @@ This is a **quick check**, not a full reserve study. Specifically:
 
 Use this as a starting point, a sanity check, or a way to quickly explore your data — not as a substitute for a signed actuarial analysis.
 
+---
+
 ## Roadmap
 
 We plan to add skills for other common P&C actuarial workflows. Feedback welcome via [Issues](../../issues).
 
-- **Ratemaking Analysis** (`ratemaking-analysis`) — Full P&C ratemaking workflow: loss trending, on-level premium, development to ultimate, expense loading, credibility weighting, and rate indications. Produces standard ratemaking exhibits. References Werner & Modlin *Basic Ratemaking*, CAS Exam 5 syllabus, ASOPs 12/25/30.
-
-- **Reinsurance Analysis** (`reinsurance-analysis`) — Treaty and facultative reinsurance analysis: ceded loss development, net vs. gross comparisons, layer analysis, sliding scale commission evaluation, and reinsurance pricing. Produces ceded reserve exhibits and treaty summary workbooks.
-
-- **Financial Statement Review** (`financial-statement-review`) — Financial statement preparation and review: Schedule P analysis, SAP/GAAP exhibit cross-checks, IRIS ratio calculations, reserve adequacy diagnostics (residual analysis, hindsight testing), and annual statement reconciliation. Complements the Loss Reserve Analysis skill with deeper diagnostics focused on regulatory reporting.
+| Skill | Status | Description |
+|-------|--------|-------------|
+| `ratemaking-analysis` | Planned | Full P&C ratemaking workflow: loss trending, on-level premium, development to ultimate, expense loading, credibility weighting, and rate indications. References Werner & Modlin *Basic Ratemaking*, CAS Exam 5 syllabus, ASOPs 12/25/30. |
+| `reinsurance-analysis` | Planned | Treaty and facultative reinsurance analysis: ceded loss development, net vs. gross comparisons, layer analysis, sliding scale commission evaluation, and reinsurance pricing. |
+| `financial-statement-review` | Planned | Schedule P analysis, SAP/GAAP exhibit cross-checks, IRIS ratio calculations, reserve adequacy diagnostics, and annual statement reconciliation. Complements the Loss Reserve Analysis skill. |
 
 If you have ideas for skills that would save you time, open an issue or reach out.
+
+---
 
 ## Contributing
 
@@ -138,6 +161,8 @@ Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 MIT License. See [LICENSE](LICENSE) for details.
 
-## Credits
+---
 
-Originally created by Kohei Kudo and [Kalta](https://kalta.ai).
+<p align="center">
+  Originally created by Kohei Kudo and <a href="https://kalta.ai">Kalta</a>.
+</p>
