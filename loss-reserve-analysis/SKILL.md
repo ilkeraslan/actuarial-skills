@@ -36,6 +36,11 @@ Per ASOP No. 23 (Data Quality), Section 3.2 (Selection of Data), consider whethe
 - Transaction-level data: claim-level records with accident_date, evaluation_date, and loss amounts — automatically aggregated into a triangle
 - Schedule P format (will need manual identification of the relevant section)
 
+**Sample data** (in `examples/`) for testing all methods:
+- `sample_triangle.csv` — 5×5 paid loss triangle (2019-2023)
+- `sample_loss_transactions.csv` — ~500 claims with paid, case reserve, and incurred columns
+- `sample_premium.csv` — earned premium by accident year (enables BF and Cape Cod methods)
+
 ### Step 2: Run the Analysis
 
 Execute the main analysis script:
@@ -70,7 +75,50 @@ The script also produces diagnostic exhibits. Review these and call out to the u
 
 These diagnostics align with ASOP No. 43 Section 3.7.1 (Reasonableness), which calls for the actuary to assess whether results are reasonable. The calendar year test and outlier analysis help identify data irregularities referenced in ASOP No. 23 Section 3.3 (Review of Data). See also Friedland Ch. 6 for discussion of the development triangle as a diagnostic tool and Werner & Modlin Ch. 6 for loss development context in ratemaking.
 
-### Step 4: Interpret Results and Present
+### Step 4: Rebuild Workbook with Formula Transparency
+
+The script produces a workbook with static values. Before presenting, **rebuild the workbook so every derived cell uses a live Excel formula** with a cached calculated value. This is the minimum transparency standard for actuarial work — a reviewer must be able to click any cell and trace the calculation back to the source triangle.
+
+**What must be a formula (not a static value):**
+- Individual age-to-age factors: `=TriangleCell[next_dev] / TriangleCell[current_dev]`
+- Volume-weighted averages: `=SUM(next_col_range) / SUM(current_col_range)`
+- Simple averages: `=AVERAGE(factor_range)`
+- Medial averages: `=(SUM(range)-MIN(range)-MAX(range))/(COUNT(range)-2)` when count >= 3
+- Selected factors: reference to the corresponding average row
+- CDF chain: `=SelectedATA * CDF_next_period` (right-to-left multiplication)
+- % Reported: `=1/CDF`
+- Latest loss: reference to the diagonal cell on the triangle sheet
+- Chain ladder ultimate: `=LatestLoss * CDF`
+- IBNR: `=Ultimate - LatestLoss`
+- BF % unreported: `=1 - %Reported`
+- BF IBNR: `=ELR * Premium * %Unreported`
+- BF/CC ultimate: `=LatestLoss + IBNR`
+- Cape Cod derived ELR: `=SUM(LatestLoss_range) / SUMPRODUCT(Premium_range, %Reported_range)`
+- All totals: `=SUM(range)`
+- Summary sheet: cross-sheet references to the CL Ultimates and BF/Cape Cod sheets
+- Tail factor derivation (on the ATA sheet, below the CDF rows). Build this block so a reviewer can trace exactly how the tail was derived:
+  - List the last 3–5 selected ATA factors where factor > 1.0 in a small table with columns:
+    - Development Period (static label)
+    - Selected ATA (formula reference to the Selected row above)
+    - Excess: `=ATA_cell - 1`
+    - LN(Excess): `=LN(excess_cell)`
+  - Slope: `=INDEX(LINEST(ln_excess_range, period_range), 1, 1)`
+  - Intercept: `=INDEX(LINEST(ln_excess_range, period_range), 1, 2)`
+  - Projected excess for each extrapolated period beyond the triangle: `=EXP($slope_cell * period + $intercept_cell)` — extend rows until projected < 0.0001 or max 20 extra periods
+  - Projected ATA for each: `=1 + projected_excess_cell`
+  - Tail factor: `=PRODUCT(projected_ATA_range)`
+  - Guard condition: if slope >= 0 or fewer than 3 qualifying factors, set tail = 1.000 with a note explaining why (no decay detected or insufficient data)
+  - The CDF chain's rightmost value must reference this tail factor cell, not a hardcoded number
+
+**What stays as static values (inputs, not derived):**
+- Triangle data (raw input)
+- Earned premium (user input)
+- A priori ELR for BF (user input or derived assumption)
+- Diagnostics sheet (calendar year test, outliers, tail sensitivity — complex stats)
+
+**Important:** Every formula cell must also have a cached calculated value so numbers display correctly in all viewers (web preview, Excel, Google Sheets). Use `xlsxwriter`'s `write_formula(row, col, formula, format, result)` or equivalent approach that writes both the formula and the pre-calculated value.
+
+### Step 5: Interpret Results and Present
 
 After running the analysis:
 
