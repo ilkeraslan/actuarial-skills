@@ -8,83 +8,74 @@
 
 <h1 align="center">Actuarial Skills for Claude</h1>
 
-<p align="center"><strong>Open-source Claude skills for property & casualty actuaries.</strong></p>
+<p align="center"><strong>Claude skills for property & casualty reserving and reinsurance work — adapted for European practice.</strong></p>
 
 <p align="center">
   <a href="#available-skills">Skills</a> •
   <a href="#quick-start">Quick Start</a> •
   <a href="#example-usage">Example</a> •
   <a href="#roadmap">Roadmap</a> •
-  <a href="#contributing">Contributing</a>
+  <a href="#credits">Credits</a>
 </p>
 
 <br>
 
-AI is reshaping how actuaries work — but the profession benefits most when practical tools are shared openly. This project provides ready-to-use Claude skills that encode standard actuarial methods, so any actuary can leverage them immediately. Think of it as a starting point: use these skills as they are, adapt them to your workflows, or contribute new ones. The goal is to build a shared foundation that helps the insurance industry move forward together.
+This repository collects ready-to-use Claude skills for P&C actuarial work. It builds on the open-source [`kalta-ai/actuarial-skills`](https://github.com/kalta-ai/actuarial-skills) project (MIT licensed) and is being adapted for European practice — Solvency II reserve reporting, SAV exam-relevant methods, and treaty reinsurance contexts. The intent is to make standard actuarial workflows directly executable in a Claude Project, while keeping the methods transparent and auditable.
 
 ---
 
 ## What Are Skills?
 
-Skills are packaged workflows that extend Claude's capabilities for domain-specific tasks. When you install an actuarial skill into a Claude Project, Claude automatically recognizes when to use it — upload a loss triangle and ask "check my reserves," and Claude runs a full analysis using standard actuarial methods without you writing a single line of code.
+Skills are packaged workflows that extend Claude's capabilities for domain-specific tasks. When you install a skill into a Claude Project, Claude recognizes when to use it — upload a loss triangle and ask "check my reserves," and Claude runs a full analysis using standard methods without any code on your side.
 
-Skills work in [Claude.ai](https://claude.ai) Projects and [Claude Code](https://docs.anthropic.com/en/docs/claude-code).
+Skills work in [Claude.ai](https://claude.ai) Projects and [Claude Code](https://docs.claude.com/en/docs/claude-code).
 
 ## Available Skills
 
 ### Loss Reserve Analysis
 
-Upload a loss development triangle or raw claim-level transaction data (Excel or CSV) and get a multi-method reserve analysis with formatted exhibits — in seconds.
+Upload a loss development triangle or claim-level transaction data (Excel or CSV) and get a multi-method reserve analysis with formatted exhibits.
 
-**Methods included:**
-- Chain Ladder — volume-weighted and simple average age-to-age factors
-- Bornhuetter-Ferguson — blends a priori ELR with development patterns
+**Methods:**
+- Chain Ladder — volume-weighted and simple-average age-to-age factors
+- Bornhuetter-Ferguson — blends a priori ELR with development pattern
 - Cape Cod (Stanard-Bühlmann) — derives ELR directly from the data
-- Tail factor estimation via exponential decay extrapolation
+- Tail factor estimation via exponential decay
 
-Methods reference standard actuarial literature including Friedland's *Estimating Unpaid Claims Using Basic Techniques* and relevant ASOPs (No. 43, 23, 25, 36) for educational context.
+References include Friedland's *Estimating Unpaid Claims Using Basic Techniques* and standard ASOPs (43, 23, 25, 36) for educational context. Planned extensions cover Mack (1993), Wüthrich & Merz, and Solvency-II-relevant reporting (see Roadmap).
 
-**Output:** A 6-exhibit Excel workbook containing:
+**Output:** A 6-exhibit Excel workbook:
 
 | Exhibit | Contents |
 |---------|----------|
-| 1 — Triangle | Your input data, formatted |
-| 2 — ATA Factors | Individual and selected age-to-age factors (volume-weighted, simple, medial) |
-| 3 — CL Ultimates | Chain ladder projected ultimates, CDFs, IBNR by accident period |
-| 4 — BF & Cape Cod | Bornhuetter-Ferguson and Cape Cod results (when premium is provided) |
-| 5 — Diagnostics | Calendar year test, outlier factor detection, tail factor sensitivity |
+| 1 — Triangle | Input data, formatted |
+| 2 — ATA Factors | Individual and selected age-to-age factors |
+| 3 — CL Ultimates | Chain ladder ultimates, CDFs, IBNR by accident period |
+| 4 — BF & Cape Cod | BF and Cape Cod results (when premium is provided) |
+| 5 — Diagnostics | Calendar year test, outlier detection, tail sensitivity |
 | 6 — Summary | Side-by-side method comparison with range analysis |
 
-**Diagnostics automatically flag:**
-- Outlier development factors (>2σ from the column mean)
-- Calendar year diagonal inconsistencies
-- Negative development (factors < 1.0)
-- Sensitivity of total IBNR to ±10% and ±25% tail factor changes
-
-### More Skills Coming Soon
-
-We're building additional skills for common actuarial workflows. See the [Roadmap](#roadmap) below.
+**Diagnostics flag:** outlier age-to-age factors (>2σ from the column mean), calendar year diagonal inconsistencies, negative development, and total IBNR sensitivity to ±10% and ±25% tail factor changes.
 
 ---
 
 ## Quick Start
 
-### Option 1: Install the `.skill` File (Recommended)
+### Option 1: Install the `.skill` File
 
 1. Download `loss-reserve-analysis.skill` from the [Releases](../../releases) page
-2. Open a Claude.ai Project → Project Settings → Skills
-3. Upload the `.skill` file
-4. Upload any loss triangle and ask Claude to analyze it
+2. In a Claude.ai Project: Project Settings → Skills → Upload skill
+3. Upload any loss triangle and ask Claude to analyze it
 
 ### Option 2: Add Manually to a Project
 
 1. Clone this repo
-2. In your Claude.ai Project, add the contents of `loss-reserve-analysis/` to your Project Knowledge
-3. Claude will automatically reference the skill when you upload triangles
+2. In your Claude.ai Project, add the contents of `loss-reserve-analysis/` to Project Knowledge
+3. Claude will reference the skill when you upload triangles
 
 ## Example Usage
 
-Upload a file like this to your Claude Project conversation:
+Upload a triangle like this:
 
 | Accident Year | 12 | 24 | 36 | 48 | 60 |
 |---------------|------|------|------|------|------|
@@ -96,73 +87,65 @@ Upload a file like this to your Claude Project conversation:
 
 Then ask:
 
-> "Run a loss reserve analysis on this triangle. It's incurred losses in thousands, development in months."
+> "Run a loss reserve analysis on this triangle. Incurred losses in thousands, development in months."
 
-Or, if you also have premium data:
+Or, with premium data:
 
 > "Check reserves on the attached triangle. Earned premiums are in the second sheet. Use BF and Cape Cod too."
 
-Claude parses the triangle, runs all applicable methods, and returns a formatted Excel report with the exhibits described above plus a narrative summary of findings.
+Claude parses the triangle, runs the applicable methods, and returns a formatted Excel report with a narrative summary.
 
 ---
 
 ## Supported Input Formats
 
-The skill handles common triangle layouts automatically:
-
-- **Standard triangle** — rows are accident periods, columns are development periods (most common)
+- **Standard triangle** — rows are accident periods, columns are development periods
 - **Columnar / long format** — three columns: accident period, development period, loss amount
-- **Transaction-level data** — raw claim-level records with `claim_id`, `accident_date`, `evaluation_date`, and loss columns — automatically aggregated into a development triangle
+- **Transaction-level data** — raw claim records with `claim_id`, `accident_date`, `evaluation_date`, and loss columns; aggregated automatically
 - **Excel or CSV** — `.xlsx`, `.xls`, `.xlsm`, `.csv`
-- **Multiple sheets** — specify which sheet contains the triangle; premium data can be on a separate sheet
+- **Multiple sheets** — specify which sheet contains the triangle; premium can be on a separate sheet
 
-Development periods can be in months or years. Accident periods can be annual or quarterly. If you have raw claims data rather than a pre-built triangle, the skill handles the aggregation for you.
+Development periods can be in months or years. Accident periods can be annual or quarterly.
 
 ## Important Caveats
 
-This is a **quick check**, not a full reserve study. Specifically:
+This is a **quick check**, not a full reserve study:
 
 - Methods are standard textbook implementations — they don't incorporate claim-level information, operational context, or judgment that a credentialed actuary would apply
-- Tail factor selection is mechanical (exponential decay). Production reserve analyses require actuarial judgment on tail selection
-- Results should be cross-referenced with knowledge of changes in claims handling, coverage, legal environment, or reinsurance
-- **This does not constitute an actuarial opinion under ASOP No. 43 or a Statement of Actuarial Opinion per ASOP No. 36**
-- ASOPs are referenced throughout for educational context — they do not constitute compliance guidance
+- Tail factor selection is mechanical (exponential decay). Production reserving requires judgment on tail selection
+- Results should be cross-referenced with knowledge of changes in claims handling, coverage, legal environment, or reinsurance structure
+- **This does not constitute an actuarial opinion under ASOP No. 43, a Statement of Actuarial Opinion under ASOP No. 36, or a SAV-compliant report under Swiss professional standards**
+- ASOPs are referenced for educational context only — they are not compliance guidance
 
-Use this as a starting point, a sanity check, or a way to quickly explore your data — not as a substitute for a signed actuarial analysis.
+Use this as a starting point or sanity check, not as a substitute for a signed actuarial analysis.
 
 ---
 
 ## Roadmap
 
-We plan to add skills for other common P&C actuarial workflows. Feedback welcome via [Issues](../../issues).
+Adaptations and extensions planned for this fork:
 
-| Skill | Status | Description |
-|-------|--------|-------------|
-| `ratemaking-analysis` | Planned | Full P&C ratemaking workflow: loss trending, on-level premium, development to ultimate, expense loading, credibility weighting, and rate indications. References Werner & Modlin *Basic Ratemaking*, CAS Exam 5 syllabus, ASOPs 12/25/30. |
-| `reinsurance-analysis` | Planned | Treaty and facultative reinsurance analysis: ceded loss development, net vs. gross comparisons, layer analysis, sliding scale commission evaluation, and reinsurance pricing. |
-| `financial-statement-review` | Planned | Schedule P analysis, SAP/GAAP exhibit cross-checks, IRIS ratio calculations, reserve adequacy diagnostics, and annual statement reconciliation. Complements the Loss Reserve Analysis skill. |
+| Item | Status | Description |
+|------|--------|-------------|
+| Mack (1993) variance estimate | Planned | Analytical reserve standard error to support distributional reporting and SCR-relevant outputs |
+| Bootstrap chain ladder | Planned | Empirical distribution of ultimates for use in capital and risk-margin contexts |
+| Berquist-Sherman | Planned | Adjustment for case reserve adequacy shifts and changes in payment patterns |
+| Solvency II / FINMA reporting hooks | Planned | Output formats aligned with QRT S.19.01 and Swiss reserve reporting templates |
+| Wüthrich & Merz reference layer | Planned | Replace US-only references with European stochastic reserving literature |
+| Treaty reinsurance reserving | Planned | Net-vs-gross development, layered triangles, ceded reserve analysis |
 
-If you have ideas for skills that would save you time, open an issue or reach out.
+Issues and pull requests welcome.
 
 ---
 
 ## Contributing
 
-We welcome contributions from actuaries and developers. Some ways to help:
-
-- **Report bugs** — if a triangle format doesn't parse correctly, open an issue with a sample (anonymized) file
-- **Suggest methods** — want to see Mack's model, bootstrapping, or GLM-based reserving? Let us know
-- **Improve diagnostics** — the more red flags we can automatically surface, the more useful the quick check becomes
-- **Add skills** — if you've built a workflow that other actuaries would benefit from, submit a PR
-
-Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+Contributions are welcome — particularly from European P&C and reinsurance practitioners. Bug reports on triangle parsing, suggestions for additional methods, and improvements to diagnostics are all useful. See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ## License
 
 MIT License. See [LICENSE](LICENSE) for details.
 
----
+## Credits
 
-<p align="center">
-  Originally created by Kohei Kudo and <a href="https://kalta.ai">Kalta</a>.
-</p>
+This project is based on [`kalta-ai/actuarial-skills`](https://github.com/kalta-ai/actuarial-skills), originally created by Kohei Kudo and [Kalta](https://kalta.ai), used here under the MIT License. Adaptations for European actuarial practice and reinsurance contexts by [Ilker Aslan](https://github.com/ilkeraslan).
