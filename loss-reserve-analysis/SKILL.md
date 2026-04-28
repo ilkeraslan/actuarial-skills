@@ -1,45 +1,43 @@
 ---
 name: loss-reserve-analysis
-description: "Perform a loss reserve analysis on P&C insurance loss development triangles. Use this skill whenever the user uploads loss triangles (paid or incurred), Schedule P data, or asks about reserve adequacy, reserve sufficiency, IBNR estimation, loss development analysis, loss reserve review, or ultimate loss projections. Also trigger when the user mentions chain ladder, Bornhuetter-Ferguson, Cape Cod, loss development factors, tail factors, or actuarial reserving methods. This skill reads triangles from Excel or CSV, runs multiple standard actuarial methods, diagnoses unusual patterns, and produces a formatted Excel report with exhibits. Even if the user just says 'check my reserves', 'run development on this triangle', or 'analyze my loss reserves', use this skill."
+description: "Perform a loss reserve analysis on P&C insurance loss development triangles in a European / Swiss regulatory context. Use this skill whenever the user uploads loss triangles (paid or incurred), Solvency II QRT S.19.01 data, FINMA reserve templates, or asks about reserve adequacy, IBNR estimation, best estimate of claims provisions, loss development analysis, or ultimate loss projections. Also trigger when the user mentions chain ladder, Bornhuetter-Ferguson, Cape Cod, Mack method, loss development factors, tail factors, claims provisions, or actuarial reserving methods. This skill reads triangles from Excel or CSV, runs multiple standard actuarial methods, diagnoses unusual patterns, and produces a formatted Excel report with exhibits. Even if the user just says 'check my reserves', 'run development on this triangle', 'estimate the best estimate', or 'analyze my loss reserves', use this skill."
 ---
 
-# Loss Reserve Analysis
+# Loss Reserve Analysis (European / Swiss Edition)
 
 ## Purpose
 
-Analyze P&C insurance loss development triangles using standard actuarial reserving methods, flag anomalies, and produce a professional loss reserve analysis report in Excel. This skill applies standard methods described in Friedland's *Estimating Unpaid Claims Using Basic Techniques* and references relevant Actuarial Standards of Practice (ASOPs) for educational context.
+Analyze P&C insurance loss development triangles using standard actuarial reserving methods, flag anomalies, and produce a professional loss reserve analysis report in Excel. This skill is adapted for European practice — Solvency II Article 77 and Article 82 (Best Estimate and data quality), Swiss Solvency Test (SST), and FINMA reserve reporting contexts.
+
+Methods reference Friedland's *Estimating Unpaid Claims Using Basic Techniques* and Wüthrich & Merz, *Stochastic Claims Reserving Methods in Insurance* (Wiley, 2008). Where US ASOPs are cited, they are educational only — Swiss-licensed work follows SAV professional guidance and FINMA Circular 2008/44 (Solvency II equivalent: EIOPA Guidelines on Valuation of Technical Provisions).
 
 ## When to Use
 
 - User uploads a loss triangle (Excel or CSV) and wants reserve analysis
-- User asks about IBNR, reserve adequacy, or ultimate loss estimates
-- User mentions chain ladder, BF, or loss development
-- User has Schedule P or similar statutory data
+- User asks about IBNR, claims provisions, best estimate, or ultimate loss estimates
+- User mentions chain ladder, Bornhuetter-Ferguson, Cape Cod, or Mack
+- User has Solvency II QRT S.19.01 data, FINMA reserve templates, or treaty reinsurance triangles (gross/ceded/net)
 
 ## Workflow
 
 ### Step 1: Identify and Parse the Triangle
 
-1. Check `/mnt/user-data/uploads/` for uploaded files
-2. Read the file using the `scripts/parse_triangle.py` helper
+1. Check `/mnt/user-data/uploads/` for uploaded files.
+2. Read the file using the `scripts/parse_triangle.py` helper.
 3. If the data format is ambiguous, ask the user:
-   - Is this **paid** losses, **incurred** losses, or both?
-   - What is the **evaluation date**?
-   - Are the development periods in **months** or **years**?
-   - Is there an **earned premium** column or sheet for BF/Cape Cod methods?
+   - Is this **paid** losses, **incurred** losses, or both? Are these **gross**, **ceded**, or **net** of reinsurance?
+   - What is the **evaluation date** (Stichtag)?
+   - Are the development periods in **months**, **quarters**, or **years**?
+   - Is there an **earned premium** column or sheet for BF/Cape Cod methods? Note whether premiums are on-level or as-collected.
+   - Is the data discounted or undiscounted? (For Solvency II Best Estimate, undiscounted nominal cash flows are typically required first; discounting is applied separately using the EIOPA risk-free rate term structure.)
 
-Per ASOP No. 23 (Data Quality), Section 3.2 (Selection of Data), consider whether the data is appropriate for the intended analysis. Ask the user about known data issues such as changes in claim coding, coverage triggers, or reopened claims that may affect triangle integrity. See Friedland Ch. 1–4 for background on the claims process, data types, and meeting with management to understand context.
+Per Solvency II Article 82 and EIOPA Guidelines on Valuation of Technical Provisions (Sections on data quality), assess whether data is appropriate, complete, and accurate. Ask the user about known data issues such as changes in claim coding, coverage triggers, reopened claims, large-loss treatment, or reinsurance restructuring that may affect triangle integrity. See Friedland Ch. 1–4 and Wüthrich & Merz Ch. 1 for background on the claims process and triangle data.
 
 **Supported formats:**
 - Standard triangle layout: rows = accident years/quarters, columns = development periods
 - Columnar layout: columns for accident period, development period, and loss amount
-- Transaction-level data: claim-level records with accident_date, evaluation_date, and loss amounts — automatically aggregated into a triangle
-- Schedule P format (will need manual identification of the relevant section)
-
-**Sample data** (in `examples/`) for testing all methods:
-- `sample_triangle.csv` — 5×5 paid loss triangle (2019-2023)
-- `sample_loss_transactions.csv` — ~500 claims with paid, case reserve, and incurred columns
-- `sample_premium.csv` — earned premium by accident year (enables BF and Cape Cod methods)
+- Solvency II QRT S.19.01 format (rolling triangles in Solvency II structure)
+- Transaction-level claim data (auto-aggregated to a triangle)
 
 ### Step 2: Run the Analysis
 
@@ -50,112 +48,86 @@ python scripts/reserve_analysis.py \
   --input <path_to_triangle_file> \
   --sheet <sheet_name_if_excel> \
   --type <paid|incurred|both> \
-  --dev-periods <months|years> \
+  --basis <gross|ceded|net> \
+  --dev-periods <months|quarters|years> \
   --premium <path_or_value_if_available> \
   --output /home/claude/reserve_report.xlsx
 ```
 
 The script runs these methods:
 
-1. **Chain Ladder (Volume-Weighted)** — Standard link ratio method using volume-weighted average factors (Friedland Ch. 7; foundational development method per ASOP No. 43 Section 3.6.1)
-2. **Chain Ladder (Simple Average)** — Arithmetic average of age-to-age factors for comparison
-3. **Bornhuetter-Ferguson** — If earned premium is provided; blends expected loss ratio with chain ladder (Friedland Ch. 9; Bornhuetter & Ferguson, PCAS 1972; incorporates credibility concepts per ASOP No. 25)
-4. **Cape Cod** — If earned premium is provided; derives expected loss ratio from the data itself (Friedland Ch. 10; Stanard, PCAS 1985)
-5. **Expected Loss Ratio** — If earned premium and an a priori loss ratio are provided (Friedland Ch. 8; useful when development data has limited credibility per ASOP No. 43 Section 3.6.1)
+1. **Chain Ladder (Volume-Weighted)** — Standard development method using volume-weighted average factors. Friedland Ch. 7; Wüthrich & Merz Ch. 3 (Mack's distribution-free chain ladder framework).
+2. **Chain Ladder (Simple Average)** — Arithmetic mean of age-to-age factors for comparison.
+3. **Mack (1993) Method** — Distribution-free chain ladder with analytical mean square error of prediction (MSEP). Provides reserve standard error per accident year and in total. Required for any output that supports SST or Solvency II Best Estimate uncertainty assessment. Reference: Mack, T. (1993), *ASTIN Bulletin* 23(2); Wüthrich & Merz Ch. 3.
+4. **Bornhuetter-Ferguson** — Blends an a priori expected loss ratio with the chain ladder pattern. Friedland Ch. 9; Bornhuetter & Ferguson, PCAS 1972; Wüthrich & Merz Ch. 2.
+5. **Cape Cod (Stanard-Bühlmann)** — Derives the expected loss ratio from the data itself. Friedland Ch. 10; Stanard, PCAS 1985. Bühlmann's contribution refers to the credibility-theoretic interpretation.
+6. **Expected Loss Ratio (ELR)** — Pure a priori method, used when development data has very limited credibility (early accident periods or new lines).
 
 ### Step 3: Review Diagnostics
 
-The script also produces diagnostic exhibits. Review these and call out to the user:
+The script produces diagnostic exhibits. Review these and flag findings to the user:
 
-- **Calendar year development test**: Checks if development along diagonals is consistent. Large swings may indicate reserve strengthening/weakening or operational changes.
-- **High/low factor analysis**: Flags individual age-to-age factors that are outliers (>2 standard deviations from the mean for that development period).
-- **Tail factor sensitivity**: Shows how ultimates change under ±10% and ±25% tail factor variations.
-- **Incurred-vs-paid gap** (if both triangles provided): Large divergence in later maturities may signal case reserve adequacy issues.
-- **Residual plots**: Standardized residuals from the chain ladder model to check for systematic patterns.
+- **Calendar year (diagonal) test**: Checks whether development along diagonals is consistent. Large swings may indicate reserve strengthening/weakening, claim handling changes, or operational shifts.
+- **Mack's three assumption tests**: Independence of accident years, variance proportionality, and absence of calendar-year effects. If any are violated, the chain ladder MSEP is unreliable and bootstrapping or a GLM approach should be considered. (Wüthrich & Merz Ch. 3.)
+- **High/low factor analysis**: Flags individual age-to-age factors that are outliers (>2 standard deviations from the column mean). With only 4–6 observations per development column on most triangles, treat 2σ flags as "review this", not "exclude this".
+- **Tail factor sensitivity**: Shows how ultimates and IBNR change under ±10% and ±25% tail factor variations. For long-tail Casualty, also report sensitivity at ±50% — exponential-decay tails materially under-estimate long-tail liabilities.
+- **Incurred-vs-paid gap** (if both triangles provided): Large divergence at later maturities may signal case reserve adequacy issues — relevant to the **Berquist-Sherman** correction (planned extension).
+- **Standardized residuals**: Plot of standardized chain-ladder residuals against accident period, development period, and calendar period. Patterns indicate model inadequacy.
 
-These diagnostics align with ASOP No. 43 Section 3.7.1 (Reasonableness), which calls for the actuary to assess whether results are reasonable. The calendar year test and outlier analysis help identify data irregularities referenced in ASOP No. 23 Section 3.3 (Review of Data). See also Friedland Ch. 6 for discussion of the development triangle as a diagnostic tool and Werner & Modlin Ch. 6 for loss development context in ratemaking.
+These diagnostics support the EIOPA "appropriateness of methods" requirement (Guidelines on Valuation of Technical Provisions, Guideline 56 onward) and the SST framework's requirement that the actuary justify method selection.
 
-### Step 4: Rebuild Workbook with Formula Transparency
-
-The script produces a workbook with static values. Before presenting, **rebuild the workbook so every derived cell uses a live Excel formula** with a cached calculated value. This is the minimum transparency standard for actuarial work — a reviewer must be able to click any cell and trace the calculation back to the source triangle.
-
-**What must be a formula (not a static value):**
-- Individual age-to-age factors: `=TriangleCell[next_dev] / TriangleCell[current_dev]`
-- Volume-weighted averages: `=SUM(next_col_range) / SUM(current_col_range)`
-- Simple averages: `=AVERAGE(factor_range)`
-- Medial averages: `=(SUM(range)-MIN(range)-MAX(range))/(COUNT(range)-2)` when count >= 3
-- Selected factors: reference to the corresponding average row
-- CDF chain: `=SelectedATA * CDF_next_period` (right-to-left multiplication)
-- % Reported: `=1/CDF`
-- Latest loss: reference to the diagonal cell on the triangle sheet
-- Chain ladder ultimate: `=LatestLoss * CDF`
-- IBNR: `=Ultimate - LatestLoss`
-- BF % unreported: `=1 - %Reported`
-- BF IBNR: `=ELR * Premium * %Unreported`
-- BF/CC ultimate: `=LatestLoss + IBNR`
-- Cape Cod derived ELR: `=SUM(LatestLoss_range) / SUMPRODUCT(Premium_range, %Reported_range)`
-- All totals: `=SUM(range)`
-- Summary sheet: cross-sheet references to the CL Ultimates and BF/Cape Cod sheets
-- Tail factor derivation (on the ATA sheet, below the CDF rows). Build this block so a reviewer can trace exactly how the tail was derived:
-  - List the last 3–5 selected ATA factors where factor > 1.0 in a small table with columns:
-    - Development Period (static label)
-    - Selected ATA (formula reference to the Selected row above)
-    - Excess: `=ATA_cell - 1`
-    - LN(Excess): `=LN(excess_cell)`
-  - Slope: `=INDEX(LINEST(ln_excess_range, period_range), 1, 1)`
-  - Intercept: `=INDEX(LINEST(ln_excess_range, period_range), 1, 2)`
-  - Projected excess for each extrapolated period beyond the triangle: `=EXP($slope_cell * period + $intercept_cell)` — extend rows until projected < 0.0001 or max 20 extra periods
-  - Projected ATA for each: `=1 + projected_excess_cell`
-  - Tail factor: `=PRODUCT(projected_ATA_range)`
-  - Guard condition: if slope >= 0 or fewer than 3 qualifying factors, set tail = 1.000 with a note explaining why (no decay detected or insufficient data)
-  - The CDF chain's rightmost value must reference this tail factor cell, not a hardcoded number
-
-**What stays as static values (inputs, not derived):**
-- Triangle data (raw input)
-- Earned premium (user input)
-- A priori ELR for BF (user input or derived assumption)
-- Diagnostics sheet (calendar year test, outliers, tail sensitivity — complex stats)
-
-**Important:** Every formula cell must also have a cached calculated value so numbers display correctly in all viewers (web preview, Excel, Google Sheets). Use `xlsxwriter`'s `write_formula(row, col, formula, format, result)` or equivalent approach that writes both the formula and the pre-calculated value.
-
-### Step 5: Interpret Results and Present
+### Step 4: Interpret Results and Present
 
 After running the analysis:
 
-1. Copy the output Excel to `/mnt/user-data/outputs/`
-2. Present the file to the user
+1. Copy the output Excel to `/mnt/user-data/outputs/`.
+2. Present the file to the user.
 3. Provide a **narrative summary** that includes:
-   - The range of indicated ultimates across methods
-   - Whether carried reserves appear adequate, deficient, or redundant relative to the chain ladder indication
-   - Which accident years show the most development volatility
-   - Any red flags from the diagnostics
-   - Caveats about data limitations and the quick-check nature of the analysis
-   - Reference the concept from ASOP No. 43 Section 3.7 (Unpaid Claim Estimate) and 3.7.1 (Reasonableness) — note that a point estimate is a selection, and the actuary should assess whether results are reasonable
+   - The range of indicated ultimates across methods, with the Mack standard error attached to the chain ladder estimate.
+   - Whether carried reserves appear adequate, deficient, or redundant relative to the chain ladder indication.
+   - Which accident years show the most development volatility.
+   - Any red flags from the diagnostics (in particular: violations of Mack's assumptions, large calendar-year effects, paid-vs-incurred divergence).
+   - Caveats about data limitations and the quick-check nature of the analysis.
+   - For Solvency II / SST contexts: explicitly note whether the output is on a **nominal undiscounted** basis (default) and that discounting and risk margin / market value margin are *not* included.
 
-**Important tone guidance**: This is a quick check, not a full reserve study. Always caveat that:
-- The analysis relies on standard methods and does not incorporate claim-level information
-- Tail factor selection is mechanical and should be reviewed by a credentialed actuary
-- Results should be cross-referenced with operational knowledge (e.g., changes in claims handling, coverage, or legal environment)
-- This does not constitute an actuarial opinion under ASOP No. 43 or a Statement of Actuarial Opinion per ASOP No. 36. A credentialed actuary should review results, apply professional judgment on factor selections, and consider the requirements of ASOP No. 43 Section 3 before relying on these estimates for decision-making
+**Important tone guidance**: This is a quick check, not a Best Estimate calculation in the regulatory sense. Always caveat:
+- The analysis relies on standard methods and does not incorporate claim-level information, large-loss treatment, ENID (Events Not In Data) loadings, or expert judgment.
+- Tail factor selection is mechanical and should be reviewed by a credentialed actuary.
+- Results should be cross-referenced with operational knowledge — claims handling changes, coverage shifts, legal environment, reinsurance program changes.
+- **This does not constitute a Best Estimate of Claims Provisions under Solvency II Article 77, an SST-compliant reserve calculation, or a Responsible Actuary opinion under FINMA Circular 2008/44.** A credentialed actuary (SAV / DAV / IFoA / equivalent) should review results, apply professional judgment to factor selections, and consider regulatory requirements before relying on these estimates.
 
 ### Step 5: Interactive Follow-Up
 
 After presenting results, offer the user options to:
-- Adjust tail factors manually
-- Exclude specific accident years or development periods
-- Change the weighting scheme for age-to-age factors
-- Run sensitivity scenarios on the a priori loss ratio (for BF/Cape Cod)
-- Compare against a benchmark loss ratio
+- Adjust tail factors manually or apply Sherman's inverse power curve as an alternative to exponential decay.
+- Exclude specific accident periods or development periods from the factor selection.
+- Change the weighting scheme (volume-weighted, simple average, latest *N* years, exclusion of high/low).
+- Run sensitivity scenarios on the a priori loss ratio (BF/Cape Cod).
+- Compare against a benchmark loss ratio or a market loss ratio.
+- Apply EIOPA risk-free rate term structure to discount cash flows (separate step; requires a payment pattern derived from paid triangle plus assumed remaining payment profile).
 
-When adjusting selections, note that ASOP No. 43 Section 3.6.7 (Changing Conditions) and 3.6.6 (External Conditions) may affect development patterns and tail behavior. ASOP No. 25 provides guidance on credibility weighting when blending methods. Tail factor considerations are discussed in Friedland Ch. 7 as part of the development technique.
+When adjusting selections, note that EIOPA Guidelines on Valuation of Technical Provisions emphasize that changes in environment (legal, social, operational) may invalidate historical patterns. Document any judgmental adjustments transparently.
 
 ## Key Actuarial Concepts (Reference)
 
-Read `references/methods.md` for detailed formulas and implementation notes on each method if needed during development or debugging.
+Read `references/methods.md` for detailed formulas and implementation notes on each method during development or debugging. The references file should be expanded to cover Mack's MSEP formula in full and the Wüthrich & Merz notation conventions used by Continental European actuaries.
 
 ## Error Handling
 
-- If the triangle has fewer than 3 accident periods, warn that credibility is very limited. ASOP No. 25 Section 3.4 (Professional Judgment) notes that credibility assessment is not always a precise mathematical process; triangles with very few data points may warrant heavier reliance on the ELR or BF methods with an externally-derived expected loss ratio
-- If any development factors are < 1.0 (negative development), flag explicitly — it may be legitimate but warrants explanation
-- If the triangle is not square (jagged), handle gracefully by only computing factors where data exists
-- If earned premium is not provided, skip BF and Cape Cod methods and note this in the output
+- If the triangle has fewer than 3 accident periods, warn that credibility is very limited. In such cases, BF or pure ELR with an externally-derived expected loss ratio is more defensible than chain ladder.
+- If any age-to-age factors are < 1.0 (negative development), flag explicitly. Negative development can be legitimate (subrogation, salvage, reopened claims with favorable settlement) but warrants explanation. Do not silently floor at 1.0.
+- If the triangle is not square (jagged), handle gracefully by computing factors only where data exists.
+- If earned premium is not provided, skip BF and Cape Cod methods and note this in the output.
+- If the user provides ceded triangles, run the analysis on a gross basis as well and report the ceded reserve as the difference; flag any anomalies in the cession pattern.
+
+## Notes on Adaptation from the Original Skill
+
+This skill is adapted from [`kalta-ai/actuarial-skills`](https://github.com/kalta-ai/actuarial-skills). Key differences from the original (US-focused) version:
+
+- ASOP references reframed as educational; Swiss / EIOPA / Solvency II framing added as the primary regulatory context.
+- Wüthrich & Merz added as a primary reference alongside Friedland.
+- Mack (1993) method added to provide an analytical reserve standard error — required for any uncertainty reporting under SST or Solvency II.
+- Quarterly accident periods supported (relevant for Swiss and EU monthly/quarterly close cycles).
+- Gross / ceded / net basis explicitly tracked, given the importance of treaty reinsurance in European P&C portfolios.
+- Sherman inverse power tail option flagged as alternative to exponential decay.
+- Output explicitly framed as nominal undiscounted, with discounting and risk margin called out as separate steps.
