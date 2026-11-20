@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-11-20
+
+### Added
+- Mack (1993) distribution-free chain ladder in `reserve_analysis.py` (`mack_chain_ladder()`): reserve standard error (root mean square error of prediction) by accident period and in total, including the covariance between accident periods, with Mack's extrapolation for the last variance parameter
+- Exhibit 7 (`7-Mack`) in the Excel report and a Mack line in the console summary
+- Mack formulas in `references/methods.md`
+
+### Validated
+- Reproduces the published Mack standard errors on the RAA triangle (total 26,909) and the Taylor–Ashe triangle (total 2,447,095)
+
+### Note
+- The standard errors cover development inside the triangle; tail-factor uncertainty is not included, as in Mack's original model
+
 ## [0.2.2] - 2026-03-17
 
 ### Added

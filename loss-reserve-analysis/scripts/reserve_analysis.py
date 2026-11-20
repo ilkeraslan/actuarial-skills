@@ -184,6 +184,98 @@ def chain_ladder_ultimates(triangle, acc_periods, cdfs, dev_periods):
     return pd.DataFrame(results)
 
 
+def mack_chain_ladder(triangle, acc_periods):
+    """
+    Mack (1993) distribution-free chain ladder.
+
+    Uses volume-weighted development factors and returns, per accident
+    period, the chain ladder reserve with its analytical standard error
+    (root mean square error of prediction), plus the total reserve
+    standard error including the correlation between accident periods.
+
+    The tail factor is not part of Mack's model: the standard errors
+    cover development within the triangle only.
+
+    Reference: Mack, T. (1993), "Distribution-free calculation of the
+    standard error of chain ladder reserve estimates", ASTIN Bulletin
+    23(2), 213-225.
+    """
+    C = triangle.apply(pd.to_numeric, errors="coerce").to_numpy(dtype=float)
+    n_rows, n_cols = C.shape
+    f = np.full(n_cols - 1, np.nan)
+    sigma2 = np.full(n_cols - 1, np.nan)
+    colsum = np.full(n_cols - 1, np.nan)
+
+    for k in range(n_cols - 1):
+        mask = ~np.isnan(C[:, k]) & ~np.isnan(C[:, k + 1]) & (C[:, k] > 0)
+        if not mask.any():
+            continue
+        colsum[k] = C[mask, k].sum()
+        f[k] = C[mask, k + 1].sum() / colsum[k]
+        n_obs = int(mask.sum())
+        if n_obs > 1:
+            ratios = C[mask, k + 1] / C[mask, k]
+            sigma2[k] = (C[mask, k] * (ratios - f[k]) ** 2).sum() / (n_obs - 1)
+
+    # Mack's extrapolation for the last factor(s) with a single observation
+    for k in range(n_cols - 1):
+        if np.isnan(sigma2[k]) and not np.isnan(f[k]):
+            if k >= 2 and not np.isnan(sigma2[k - 1]) and not np.isnan(sigma2[k - 2]) and sigma2[k - 2] > 0:
+                sigma2[k] = min(sigma2[k - 1] ** 2 / sigma2[k - 2], sigma2[k - 2], sigma2[k - 1])
+            elif k >= 1 and not np.isnan(sigma2[k - 1]):
+                sigma2[k] = sigma2[k - 1]
+            else:
+                sigma2[k] = 0.0
+
+    # Latest diagonal and projection
+    latest_idx = np.array([
+        max([j for j in range(n_cols) if not np.isnan(C[i, j])], default=-1)
+        for i in range(n_rows)
+    ])
+    C_hat = C.copy()
+    for i in range(n_rows):
+        if latest_idx[i] < 0:
+            continue
+        for k in range(latest_idx[i], n_cols - 1):
+            C_hat[i, k + 1] = C_hat[i, k] * (f[k] if not np.isnan(f[k]) else 1.0)
+
+    ult = C_hat[:, -1]
+    term = np.where(np.isnan(f) | (f == 0), 0.0, sigma2 / np.where(f == 0, 1.0, f) ** 2)
+
+    rows = []
+    mse = np.zeros(n_rows)
+    for i in range(n_rows):
+        a = latest_idx[i]
+        if a < 0:
+            rows.append({"accident_period": acc_periods[i], "latest_loss": np.nan, "ultimate": np.nan,
+                         "reserve": np.nan, "mack_se": np.nan, "cv": np.nan})
+            continue
+        s = 0.0
+        for k in range(a, n_cols - 1):
+            if C_hat[i, k] > 0 and colsum[k] > 0:
+                s += term[k] * (1.0 / C_hat[i, k] + 1.0 / colsum[k])
+        mse[i] = ult[i] ** 2 * s
+        reserve = ult[i] - C[i, a]
+        se = np.sqrt(mse[i])
+        rows.append({"accident_period": acc_periods[i], "latest_loss": C[i, a], "ultimate": ult[i],
+                     "reserve": reserve, "mack_se": se, "cv": se / reserve if reserve > 0 else np.nan})
+
+    total_mse = mse.sum()
+    for i in range(n_rows):
+        for j in range(i + 1, n_rows):
+            if latest_idx[i] < 0 or latest_idx[j] < 0:
+                continue
+            start = max(latest_idx[i], latest_idx[j])
+            cross = sum(term[k] / colsum[k] for k in range(start, n_cols - 1) if colsum[k] > 0)
+            total_mse += 2.0 * ult[i] * ult[j] * cross
+
+    per_ay = pd.DataFrame(rows)
+    total_reserve = per_ay["reserve"].sum()
+    total_se = float(np.sqrt(total_mse))
+    params = pd.DataFrame({"dev_period": triangle.columns[:-1], "factor": f, "sigma2": sigma2})
+    return per_ay, total_reserve, total_se, params
+
+
 def bornhuetter_ferguson(triangle, acc_periods, dev_periods, cdfs, premiums, elr):
     """Compute BF ultimate losses."""
     results = []
@@ -360,7 +452,7 @@ def write_report(output_path, triangle, acc_periods, dev_periods,
                  cl_vw_results, cl_sa_results, cdfs_vw, cdfs_sa,
                  bf_results, cc_results, cc_elr,
                  cal_year_diag, outlier_df, tail_sens,
-                 loss_type="incurred", premiums=None):
+                 loss_type="incurred", premiums=None, mack=None):
     """Write formatted Excel report with all exhibits."""
     from openpyxl import Workbook
     from openpyxl.styles import Font, PatternFill, Alignment, Border, Side, numbers
@@ -733,6 +825,53 @@ def write_report(output_path, triangle, acc_periods, dev_periods,
 
     auto_width(ws6, len(sum_cols))
 
+    # ---- Exhibit 7: Mack (1993) standard errors ----
+    if mack is not None:
+        mack_per, mack_total_res, mack_total_se, mack_params = mack
+        ws7 = wb.create_sheet("7-Mack")
+        ws7['A1'] = "Exhibit 7: Mack (1993) Chain Ladder Standard Errors"
+        ws7['A1'].font = title_font
+        ws7.merge_cells(start_row=1, start_column=1, end_row=1, end_column=6)
+        ws7['A2'] = ("Volume-weighted chain ladder without tail. Standard error = root mean square "
+                     "error of prediction (process plus parameter error).")
+        ws7['A2'].font = Font(italic=True, name='Arial', size=9, color='555555')
+        hdr = ["Accident Period", "Latest Loss", "Ultimate", "Reserve", "Mack S.E.", "CV"]
+        for c, h in enumerate(hdr, 1):
+            ws7.cell(row=4, column=c, value=h)
+        style_header_row(ws7, 4, len(hdr))
+        r = 5
+        for _, row in mack_per.iterrows():
+            ws7.cell(row=r, column=1, value=row['accident_period'])
+            for c, key in enumerate(['latest_loss', 'ultimate', 'reserve', 'mack_se'], 2):
+                if pd.notna(row[key]):
+                    ws7.cell(row=r, column=c, value=float(row[key])).number_format = num_fmt
+            if pd.notna(row['cv']):
+                ws7.cell(row=r, column=6, value=float(row['cv'])).number_format = pct_fmt
+            r += 1
+        ws7.cell(row=r, column=1, value="Total")
+        ws7.cell(row=r, column=4, value=float(mack_total_res)).number_format = num_fmt
+        ws7.cell(row=r, column=5, value=float(mack_total_se)).number_format = num_fmt
+        if mack_total_res > 0:
+            ws7.cell(row=r, column=6, value=float(mack_total_se / mack_total_res)).number_format = pct_fmt
+        for c in range(1, 7):
+            ws7.cell(row=r, column=c).font = Font(bold=True, name='Arial')
+            ws7.cell(row=r, column=c).fill = light_fill
+        r += 3
+        ws7.cell(row=r, column=1, value="Development parameters").font = subtitle_font
+        r += 1
+        for c, h in enumerate(["Development Period", "Factor f(k)", "Sigma squared"], 1):
+            ws7.cell(row=r, column=c, value=h)
+        style_header_row(ws7, r, 3)
+        r += 1
+        for _, row in mack_params.iterrows():
+            ws7.cell(row=r, column=1, value=row['dev_period'])
+            if pd.notna(row['factor']):
+                ws7.cell(row=r, column=2, value=float(row['factor'])).number_format = factor_fmt
+            if pd.notna(row['sigma2']):
+                ws7.cell(row=r, column=3, value=float(row['sigma2'])).number_format = '#,##0.0000'
+            r += 1
+        auto_width(ws7, 6)
+
     wb.save(output_path)
     return output_path
 
@@ -819,6 +958,9 @@ def main():
     outliers = outlier_factors(individual_factors, selected_factors, dev_periods)
     tail_sens = tail_sensitivity(cl_vw, cdfs_vw, tail_factor, dev_periods)
 
+    print("Running Mack (1993) standard errors...")
+    mack = mack_chain_ladder(triangle, acc_periods)
+
     # Write report
     print(f"\nWriting report to {args.output}...")
     write_report(
@@ -827,7 +969,7 @@ def main():
         cl_vw, cl_sa, cdfs_vw, cdfs_sa,
         bf_results, cc_results, cc_elr,
         cal_diag, outliers, tail_sens,
-        loss_type=args.type, premiums=premiums
+        loss_type=args.type, premiums=premiums, mack=mack
     )
 
     # Print summary
@@ -848,6 +990,10 @@ def main():
     if cc_results is not None:
         total_cc = cc_results['ultimate'].sum()
         print(f"Cape Cod Ultimate:      {total_cc:,.0f}")
+
+    _, mack_res, mack_se, _ = mack
+    if mack_res > 0:
+        print(f"Mack S.E. (no tail):    {mack_se:,.0f}  |  CV: {mack_se / mack_res:.1%}")
 
     print(f"\nTail Factor: {tail_factor:.4f} ({tail_method})")
     if not outliers.empty:

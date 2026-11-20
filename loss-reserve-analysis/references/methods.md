@@ -205,3 +205,38 @@ Report the range of total IBNR under each scenario.
 - **Bornhuetter, R.L. & Ferguson, R.E.** "The Actuary and IBNR." *Proceedings of the Casualty Actuarial Society*, 1972. Original paper introducing the BF method.
 - **Stanard, J.N.** "A Simulation Test of Prediction Errors of Loss Reserve Estimation Techniques." *Proceedings of the Casualty Actuarial Society*, 1985. Introduces the Cape Cod / Stanard-Bühlmann method.
 - **Wiser, R.F. et al.** "Loss Reserving." *Foundations of Casualty Actuarial Science*, CAS. Overview of reserving principles and methods used in CAS examination syllabus.
+
+## 6. Mack (1993) Standard Error
+
+Mack's distribution-free model gives the mean square error of prediction (MSEP) of the chain ladder reserve without assuming a loss distribution. Notation: cumulative losses C(i,k) for accident period i = 1..I and development period k = 1..I.
+
+### Parameters
+
+- Development factor (volume-weighted): f(k) = Σ_{i=1}^{I-k} C(i,k+1) / Σ_{i=1}^{I-k} C(i,k)
+- Variance parameter, for k = 1..I-2: σ²(k) = 1/(I-k-1) · Σ_{i=1}^{I-k} C(i,k) · (C(i,k+1)/C(i,k) − f(k))²
+- Last variance parameter (single observation): σ²(I-1) = min( σ⁴(I-2)/σ²(I-3), σ²(I-3), σ²(I-2) )
+
+### Standard error by accident period
+
+With Ĉ(i,k) the projected cumulative losses and R(i) = Ĉ(i,I) − C(i,I+1-i):
+
+MSEP(R(i)) = Ĉ(i,I)² · Σ_{k=I+1-i}^{I-1} [σ²(k)/f(k)²] · [ 1/Ĉ(i,k) + 1/Σ_{j=1}^{I-k} C(j,k) ]
+
+The first term inside the brackets is process error, the second parameter error. The standard error is the square root.
+
+### Standard error of the total reserve
+
+MSEP(R) = Σ_i { MSEP(R(i)) + Ĉ(i,I) · (Σ_{j=i+1}^{I} Ĉ(j,I)) · Σ_{k=I+1-i}^{I-1} [2σ²(k)/f(k)²] / Σ_{n=1}^{I-k} C(n,k) }
+
+The cross term reflects that all accident periods share the same estimated factors.
+
+### Assumptions and use
+
+- Accident periods are independent; E[C(i,k+1) | C(i,1..k)] = f(k)·C(i,k); Var[C(i,k+1) | C(i,1..k)] = σ²(k)·C(i,k).
+- Check them before relying on the result: calendar-year effects (section 5) and non-proportional variance both bias the MSEP.
+- The model covers development inside the triangle only; a tail factor adds uncertainty that the Mack standard error does not measure.
+- Benchmarks: RAA triangle, total reserve 52,135 with standard error 26,909; Taylor–Ashe triangle, 18,680,856 with 2,447,095 (Mack 1993; Wüthrich & Merz 2008, ch. 3).
+
+Reference: Mack, T. (1993). Distribution-free calculation of the standard error of chain ladder reserve estimates. *ASTIN Bulletin* 23(2), 213–225.
+
+---

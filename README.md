@@ -40,11 +40,12 @@ Upload a loss development triangle or claim-level transaction data (Excel or CSV
 - Chain Ladder — volume-weighted and simple-average age-to-age factors
 - Bornhuetter-Ferguson — blends a priori ELR with development pattern
 - Cape Cod (Stanard-Bühlmann) — derives ELR directly from the data
+- Mack (1993) — analytical standard error of the chain ladder reserve, by accident period and in total
 - Tail factor estimation via exponential decay
 
-References include Friedland's *Estimating Unpaid Claims Using Basic Techniques* and standard ASOPs (43, 23, 25, 36) for educational context. Planned extensions cover Mack (1993), Wüthrich & Merz, and Solvency-II-relevant reporting (see Roadmap).
+References include Friedland's *Estimating Unpaid Claims Using Basic Techniques* and standard ASOPs (43, 23, 25, 36) for educational context. Planned extensions cover bootstrap distributions, Wüthrich & Merz, and Solvency-II-relevant reporting (see Roadmap).
 
-**Output:** A 6-exhibit Excel workbook:
+**Output:** A 7-exhibit Excel workbook:
 
 | Exhibit | Contents |
 |---------|----------|
@@ -54,6 +55,7 @@ References include Friedland's *Estimating Unpaid Claims Using Basic Techniques*
 | 4 — BF & Cape Cod | BF and Cape Cod results (when premium is provided) |
 | 5 — Diagnostics | Calendar year test, outlier detection, tail sensitivity |
 | 6 — Summary | Side-by-side method comparison with range analysis |
+| 7 — Mack | Reserve standard error and coefficient of variation by accident period and in total, with the development parameters |
 
 **Diagnostics flag:** outlier age-to-age factors (>2σ from the column mean), calendar year diagonal inconsistencies, negative development, and total IBNR sensitivity to ±10% and ±25% tail factor changes.
 
@@ -127,7 +129,7 @@ Adaptations and extensions planned for this fork:
 
 | Item | Status | Description |
 |------|--------|-------------|
-| Mack (1993) variance estimate | Planned | Analytical reserve standard error to support distributional reporting and SCR-relevant outputs |
+| Mack (1993) variance estimate | Done (v0.3.0) | Analytical reserve standard error to support distributional reporting and SCR-relevant outputs; reproduces Mack's published RAA and Taylor–Ashe results |
 | Bootstrap chain ladder | Planned | Empirical distribution of ultimates for use in capital and risk-margin contexts |
 | Berquist-Sherman | Planned | Adjustment for case reserve adequacy shifts and changes in payment patterns |
 | Solvency II / FINMA reporting hooks | Planned | Output formats aligned with QRT S.19.01 and Swiss reserve reporting templates |

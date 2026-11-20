@@ -110,7 +110,7 @@ When adjusting selections, note that EIOPA Guidelines on Valuation of Technical 
 
 ## Key Actuarial Concepts (Reference)
 
-Read `references/methods.md` for detailed formulas and implementation notes on each method during development or debugging. The references file should be expanded to cover Mack's MSEP formula in full and the Wüthrich & Merz notation conventions used by Continental European actuaries.
+Read `references/methods.md` for detailed formulas and implementation notes on each method during development or debugging. Section 6 gives Mack's MSEP formulas in full, matching `mack_chain_ladder()` in the script; the Wüthrich & Merz notation conventions used by Continental European actuaries are still to be added.
 
 ## Error Handling
 
